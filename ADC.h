@@ -70,10 +70,17 @@ class ADC
     protected:
     private:
 
-        // ADCs objects
-        ADC_Module adc0_obj;
+        #if ADC_DIFF_PAIRS > 0
+        static ADC_Module adc0_obj;
         #if ADC_NUM_ADCS>1
-        ADC_Module adc1_obj;
+        static ADC_Module adc1_obj;
+        #endif
+        #else
+        // ADCs objects
+        static ADC_Module adc0_obj;
+        #if ADC_NUM_ADCS>1
+        static ADC_Module adc1_obj;
+        #endif
         #endif
 
         //! Number of ADC objects
@@ -82,9 +89,8 @@ class ADC
 
     public:
 
-        /** Default constructor */
-        ADC();
-
+        /** Constructor */
+        ADC() {}
 
         // create both adc objects
 
@@ -586,7 +592,10 @@ class ADC
 
 };
 
-
+//! Control the ADC
+extern ADC adc_obj;
+//! Control the ADC
+extern ADC* const adc;
 
 
 #ifdef __cplusplus

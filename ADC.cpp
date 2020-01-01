@@ -206,25 +206,22 @@ const uint8_t ADC::sc1a2channelADC1[]= { // new version, gives directly the pin 
 };
 #endif
 
+//! Control the ADC
+ADC adc_obj{};
+ADC* const adc = &adc_obj;
 
-// Constructor
-ADC::ADC() : // awkward initialization  so there are no -Wreorder warnings
-    #if ADC_DIFF_PAIRS > 0
-    adc0_obj(0, channel2sc1aADC0, diff_table_ADC0, ADC0_START)
-    #if ADC_NUM_ADCS>1
-    , adc1_obj(1, channel2sc1aADC1, diff_table_ADC1, ADC1_START)
-    #endif
-    #else
-    adc0_obj(0, channel2sc1aADC0, ADC0_START)
-    #if ADC_NUM_ADCS>1
-    , adc1_obj(1, channel2sc1aADC1, ADC1_START)
-    #endif
-    #endif
-    {
-    //ctor
-
-    //digitalWriteFast(LED_BUILTIN, HIGH);
-}
+//! Instantiate the ADC modules
+#if ADC_DIFF_PAIRS > 0
+ADC_Module ADC::adc0_obj = ADC_Module{0, ADC::channel2sc1aADC0, ADC::diff_table_ADC0, ADC0_START};
+#if ADC_NUM_ADCS>1
+ADC_Module ADC::adc1_obj = ADC_Module{1, ADC::channel2sc1aADC1, ADC::diff_table_ADC0, ADC1_START};
+#endif
+#else
+ADC_Module ADC::adc0_obj = ADC_Module{0, ADC::channel2sc1aADC0, ADC0_START};
+#if ADC_NUM_ADCS>1
+ADC_Module ADC::adc1_obj = ADC_Module{1, ADC::channel2sc1aADC1, ADC1_START};
+#endif
+#endif
 
 
 
