@@ -73,10 +73,43 @@ public:
     *   \param a_diff_table is similar to a_channel2sc1a, but for differential pins.
     *   \param a_adc_regs pointer to start of the ADC registers
     */
-    ADC_Module(uint8_t ADC_number, 
-               const uint8_t* const a_channel2sc1a, 
-               const ADC_NLIST* const a_diff_table,
-               ADC_REGS_t &a_adc_regs);
+    constexpr ADC_Module(uint8_t ADC_number, 
+                       const uint8_t* const a_channel2sc1a, 
+                       const ADC_NLIST* const a_diff_table,
+                       ADC_REGS_t &a_adc_regs) :
+        adc_config({0, 0, 0, 0})
+        , adcWasInUse(false)
+        , num_measurements(0)
+        , fail_flag(ADC_ERROR::CLEAR) // clear all errors
+        , ADC_num(ADC_number)
+        , calibrating(0)
+        , init_calib(1)
+        , analog_res_bits(0)
+        , analog_max_val(0)
+        , analog_num_average(0)
+        , analog_reference_internal(ADC_REF_SOURCE::REF_NONE)
+        #if ADC_USE_PGA 
+        , pga_value(1)
+        #endif
+        , conversion_speed(ADC_CONVERSION_SPEED::HIGH_SPEED) // set to something different from line 139 so it gets changed there
+        , sampling_speed(ADC_SAMPLING_SPEED::VERY_HIGH_SPEED)
+        , channel2sc1a(a_channel2sc1a)
+        , interrupts_enabled(false)
+        , diff_table(a_diff_table)
+        , adc_regs(a_adc_regs)
+        #if ADC_USE_PDB
+        , PDB0_CHnC1(ADC_num? PDB0_CH1C1 : PDB0_CH0C1)
+        #endif
+        #if defined(ADC_TEENSY_4)
+        , IRQ_ADC(ADC_num? IRQ_NUMBER_t::IRQ_ADC2 : IRQ_NUMBER_t::IRQ_ADC1)
+        #elif ADC_NUM_ADCS==2
+        // IRQ_ADC0 and IRQ_ADC1 aren't consecutive in Teensy 3.6
+        // fix by SB, https://github.com/pedvide/ADC/issues/19
+        , IRQ_ADC(ADC_num? IRQ_NUMBER_t::IRQ_ADC1 : IRQ_NUMBER_t::IRQ_ADC0) 
+        #else
+        , IRQ_ADC(IRQ_NUMBER_t::IRQ_ADC0)
+        #endif
+        {}
     #else
     //! Constructor
     /** Pass the ADC number and the Channel number to SC1A number arrays.
@@ -84,10 +117,46 @@ public:
     *   \param a_channel2sc1a contains an index that pairs each pin to its SC1A number (used to start a conversion on that pin)
     *   \param a_adc_regs pointer to start of the ADC registers
     */
-    ADC_Module(uint8_t ADC_number, 
-               const uint8_t* const a_channel2sc1a, 
-               ADC_REGS_t &a_adc_regs);
+    constexpr ADC_Module(uint8_t ADC_number, 
+                       const uint8_t* const a_channel2sc1a, 
+                       ADC_REGS_t &a_adc_regs) :
+        adc_config({0, 0, 0, 0})
+        , adcWasInUse(false)
+        , num_measurements(0)
+        , fail_flag(ADC_ERROR::CLEAR) // clear all errors
+        , ADC_num(ADC_number)
+        , calibrating(0)
+        , init_calib(1)
+        , analog_res_bits(0)
+        , analog_max_val(0)
+        , analog_num_average(0)
+        , analog_reference_internal(ADC_REF_SOURCE::REF_NONE)
+        #if ADC_USE_PGA 
+        , pga_value(1)
+        #endif
+        , conversion_speed(ADC_CONVERSION_SPEED::HIGH_SPEED) // set to something different from line 139 so it gets changed there
+        , sampling_speed(ADC_SAMPLING_SPEED::VERY_HIGH_SPEED)
+        , channel2sc1a(a_channel2sc1a)
+        , interrupts_enabled(false)
+        , adc_regs(a_adc_regs)
+        #if ADC_USE_PDB
+        , PDB0_CHnC1(ADC_num? PDB0_CH1C1 : PDB0_CH0C1)
+        #endif
+        #if defined(ADC_TEENSY_4)
+        , IRQ_ADC(ADC_num? IRQ_NUMBER_t::IRQ_ADC2 : IRQ_NUMBER_t::IRQ_ADC1)
+        #elif ADC_NUM_ADCS==2
+        // IRQ_ADC0 and IRQ_ADC1 aren't consecutive in Teensy 3.6
+        // fix by SB, https://github.com/pedvide/ADC/issues/19
+        , IRQ_ADC(ADC_num? IRQ_NUMBER_t::IRQ_ADC1 : IRQ_NUMBER_t::IRQ_ADC0) 
+        #else
+        , IRQ_ADC(IRQ_NUMBER_t::IRQ_ADC0)
+        #endif
+        {}
     #endif
+
+
+    //! Initialize ADC
+    void init();
 
 
     //! Starts the calibration sequence, waits until it's done and writes the results
@@ -594,7 +663,7 @@ public:
     //! This flag indicates that some kind of error took place
     /** Use the defines at the beginning of this file to find out what caused the fail.
     */
-    volatile ADC_ERROR fail_flag;
+    ADC_ERROR fail_flag;
 
     //! Resets all errors from the ADC, if any.
     void resetError() {
@@ -659,10 +728,6 @@ private:
         return ADC_SC1A_PIN_INVALID;
     }
     #endif
-
-
-    //! Initialize ADC
-    void analog_init();
 
     //! Switch on clock to ADC
     void startClock() {

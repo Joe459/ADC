@@ -36,44 +36,6 @@
 #include <VREF.h>
 #endif
 
-
-/* Constructor
-*   Point the registers to the correct ADC module
-*   Copy the correct channel2sc1a
-*   Call init
-*/
-ADC_Module::ADC_Module(uint8_t ADC_number, 
-                       const uint8_t* const a_channel2sc1a, 
-                       #if ADC_DIFF_PAIRS > 0
-                       const ADC_NLIST* const a_diff_table,
-                       #endif
-                       ADC_REGS_t &a_adc_regs) :
-        ADC_num(ADC_number)
-        , channel2sc1a(a_channel2sc1a)
-        #if ADC_DIFF_PAIRS > 0
-        , diff_table(a_diff_table)
-        #endif
-        , adc_regs(a_adc_regs)
-        #if ADC_USE_PDB
-        , PDB0_CHnC1(ADC_num? PDB0_CH1C1 : PDB0_CH0C1)
-        #endif
-        #if defined(ADC_TEENSY_4)
-        , IRQ_ADC(ADC_num? IRQ_NUMBER_t::IRQ_ADC2 : IRQ_NUMBER_t::IRQ_ADC1)
-        #elif ADC_NUM_ADCS==2
-        // IRQ_ADC0 and IRQ_ADC1 aren't consecutive in Teensy 3.6
-        // fix by SB, https://github.com/pedvide/ADC/issues/19
-        , IRQ_ADC(ADC_num? IRQ_NUMBER_t::IRQ_ADC1 : IRQ_NUMBER_t::IRQ_ADC0) 
-        #else
-        , IRQ_ADC(IRQ_NUMBER_t::IRQ_ADC0)
-        #endif
-        {
-
-
-    // call our init
-    analog_init();
-
-}
-
 /* Initialize stuff:
 *  - Switch on clock
 *  - Clear all fail flags
@@ -85,7 +47,7 @@ ADC_Module::ADC_Module(uint8_t ADC_number,
 *     - Conversion speed and sampling time (both set to medium speed)
 *     - Averaging (set to 4)
 */
-void ADC_Module::analog_init() {
+void ADC_Module::init() {
 
     startClock();
 
@@ -100,29 +62,12 @@ void ADC_Module::analog_init() {
         - sampling speed = medium
     initiate to 0 (or 1) so the corresponding functions change it to the correct value
     */
-    analog_res_bits = 0;
-    analog_max_val = 0;
-    analog_num_average = 0;
-    analog_reference_internal = ADC_REF_SOURCE::REF_NONE;
-    #if ADC_USE_PGA 
-    pga_value = 1;
-    #endif
-    interrupts_enabled = false;
 
     #ifdef ADC_TEENSY_4
     // overwrite old values if a new conversion ends
     atomic::setBitFlag(adc_regs.CFG, ADC_CFG_OVWREN);
     // this is the only option for Teensy 3.x and LC
     #endif
-
-    conversion_speed = ADC_CONVERSION_SPEED::HIGH_SPEED; // set to something different from line 139 so it gets changed there
-    sampling_speed =  ADC_SAMPLING_SPEED::VERY_HIGH_SPEED;
-
-    calibrating = 0;
-
-    fail_flag = ADC_ERROR::CLEAR; // clear all errors
-
-    num_measurements = 0;
 
     // select b channels
     #ifdef ADC_TEENSY_4
@@ -140,7 +85,6 @@ void ADC_Module::analog_init() {
 
     // the first calibration will use 32 averages and lowest speed,
     // when this calibration is over the averages and speed will be set to default by wait_for_cal and init_calib will be cleared.
-    init_calib = 1;
     setAveraging(32);
     setConversionSpeed(ADC_CONVERSION_SPEED::LOW_SPEED);
     setSamplingSpeed(ADC_SAMPLING_SPEED::LOW_SPEED);

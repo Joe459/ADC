@@ -109,6 +109,14 @@ class ADC
         ADC_Module *const adc[ADC_NUM_ADCS] = {adc0, adc1};
         #endif
 
+        //! Initializes all ADC modules
+        void init() {
+            adc0->init();
+            #if ADC_NUM_ADCS>1
+            adc0->init();
+            #endif
+        }
+
 
         /////////////// METHODS TO SET/GET SETTINGS OF THE ADC ////////////////////
 
